@@ -3,3 +3,6 @@
 -dontwarn com.google.api.**
 -dontwarn org.apache.**
 -dontwarn com.sun.**
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class okhttp3.** { *; }

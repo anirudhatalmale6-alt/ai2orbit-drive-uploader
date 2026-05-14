@@ -11,8 +11,8 @@ android {
         applicationId = "com.ai2orbit.driveuploader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0-performance"
+        versionCode = 2
+        versionName = "2.0-multicloud"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -64,6 +64,9 @@ dependencies {
 
     // Coroutines for parallel uploads
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // AWS S3 (lightweight HTTP signing, no full SDK needed)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Encrypted storage
     implementation("androidx.security:security-crypto:1.1.0-alpha06")

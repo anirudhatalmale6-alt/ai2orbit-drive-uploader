@@ -131,12 +131,7 @@ class PhotoUploadActivity : AppCompatActivity() {
     }
 
     private fun startUpload() {
-        val driveService = GoogleAuthHelper.getDriveService(this)
-        if (driveService == null) {
-            Toast.makeText(this, "Not signed in to Google", Toast.LENGTH_LONG).show()
-            return
-        }
-
+        val provider = CloudConfigManager.getSelectedProvider(this)
         val effectiveProfile = profile ?: DeviceProfile(
             cpuScoreNs = 10000.0, memoryMbps = 500.0, gpuScore = 1.0,
             screenScore = 60.0, totalRamMb = 2048, availableRamMb = 1024,
@@ -144,25 +139,58 @@ class PhotoUploadActivity : AppCompatActivity() {
             parallelStreams = 2, virtualStreams = 7, estimatedKbps = 1000.0
         )
 
-        val uploader = DriveUploader(driveService, contentResolver, effectiveProfile)
         val toUpload = selectedUris.toList()
+        val providerLabel = CloudConfigManager.getProviderLabel(provider)
 
         binding.btnUpload.isEnabled = false
         binding.btnSelectAll.isEnabled = false
         binding.progressBar.visibility = View.VISIBLE
         binding.tvProgress.visibility = View.VISIBLE
-        binding.tvProgress.text = "Uploading 0 / ${toUpload.size}..."
+        binding.tvProgress.text = "Uploading 0 / ${toUpload.size} to $providerLabel..."
+
+        val progressCallback: (Int, Int, UploadResult?) -> Unit = { current, total, result ->
+            binding.tvProgress.text = "Uploading $current / $total to $providerLabel..." +
+                if (result != null && result.success) {
+                    "\n${result.fileName}: ${String.format("%.1f", result.speedKbps)} kbps"
+                } else if (result != null) {
+                    "\n${result.fileName}: FAILED"
+                } else ""
+        }
 
         lifecycleScope.launch {
             val startTime = System.currentTimeMillis()
 
-            val batchResult = uploader.uploadPhotos(toUpload) { current, total, result ->
-                binding.tvProgress.text = "Uploading $current / $total..." +
-                    if (result != null && result.success) {
-                        "\n${result.fileName}: ${String.format("%.1f", result.speedKbps)} kbps"
-                    } else if (result != null) {
-                        "\n${result.fileName}: FAILED"
-                    } else ""
+            val batchResult = when (provider) {
+                CloudProvider.GOOGLE_DRIVE -> {
+                    val driveService = GoogleAuthHelper.getDriveService(this@PhotoUploadActivity)
+                    if (driveService == null) {
+                        Toast.makeText(this@PhotoUploadActivity, "Not signed in to Google", Toast.LENGTH_LONG).show()
+                        resetUploadUI()
+                        return@launch
+                    }
+                    DriveUploader(driveService, contentResolver, effectiveProfile)
+                        .uploadPhotos(toUpload, progressCallback)
+                }
+                CloudProvider.AMAZON_S3 -> {
+                    val s3Config = CloudConfigManager.loadS3Config(this@PhotoUploadActivity)
+                    if (s3Config == null) {
+                        Toast.makeText(this@PhotoUploadActivity, "S3 not configured", Toast.LENGTH_LONG).show()
+                        resetUploadUI()
+                        return@launch
+                    }
+                    S3Uploader(s3Config, contentResolver, effectiveProfile)
+                        .uploadPhotos(toUpload, progressCallback)
+                }
+                CloudProvider.AZURE_BLOB -> {
+                    val azConfig = CloudConfigManager.loadAzureConfig(this@PhotoUploadActivity)
+                    if (azConfig == null) {
+                        Toast.makeText(this@PhotoUploadActivity, "Azure not configured", Toast.LENGTH_LONG).show()
+                        resetUploadUI()
+                        return@launch
+                    }
+                    AzureBlobUploader(azConfig, contentResolver, effectiveProfile)
+                        .uploadPhotos(toUpload, progressCallback)
+                }
             }
 
             val totalTime = System.currentTimeMillis() - startTime
@@ -173,7 +201,7 @@ class PhotoUploadActivity : AppCompatActivity() {
 
             val totalMb = batchResult.totalBytes.toDouble() / (1024 * 1024)
             binding.tvProgress.text = buildString {
-                appendLine("UPLOAD COMPLETE")
+                appendLine("UPLOAD COMPLETE - $providerLabel")
                 appendLine("─".repeat(30))
                 appendLine("Files: ${batchResult.successCount}/${batchResult.totalFiles} uploaded")
                 appendLine("Total: ${String.format("%.2f", totalMb)} MB")
@@ -185,13 +213,20 @@ class PhotoUploadActivity : AppCompatActivity() {
                     appendLine("Failed: ${batchResult.failCount}")
                 }
                 appendLine("─".repeat(30))
-                append("Photos saved to Google Drive > AI2ORBIT_Photos")
+                append("Photos saved to $providerLabel")
             }
 
             selectedUris.clear()
             adapter?.notifyDataSetChanged()
             updateUploadButton()
         }
+    }
+
+    private fun resetUploadUI() {
+        binding.btnUpload.isEnabled = true
+        binding.btnSelectAll.isEnabled = true
+        binding.progressBar.visibility = View.GONE
+        binding.tvProgress.visibility = View.GONE
     }
 
     override fun onSupportNavigateUp(): Boolean {

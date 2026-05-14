@@ -31,5 +31,9 @@
             android:name=".PhotoUploadActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".CloudSetupActivity"
+            android:exported="false" />
+
     </application>
 </manifest>

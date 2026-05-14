@@ -48,42 +48,89 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, PhotoUploadActivity::class.java))
         }
 
+        binding.btnCloudSetup.setOnClickListener {
+            startActivity(Intent(this, CloudSetupActivity::class.java))
+        }
+
         binding.btnSignOut.setOnClickListener {
             GoogleAuthHelper.signOut(this) {
-                updateUI(false)
+                updateUI()
                 Toast.makeText(this, "Signed out", Toast.LENGTH_SHORT).show()
             }
         }
 
-        updateUI(GoogleAuthHelper.isSignedIn(this))
+        binding.rgCloud.setOnCheckedChangeListener { _, checkedId ->
+            val provider = when (checkedId) {
+                R.id.rbS3 -> CloudProvider.AMAZON_S3
+                R.id.rbAzure -> CloudProvider.AZURE_BLOB
+                else -> CloudProvider.GOOGLE_DRIVE
+            }
+            CloudConfigManager.setSelectedProvider(this, provider)
+            updateUI()
+        }
+
+        updateUI()
     }
 
     override fun onResume() {
         super.onResume()
-        updateUI(GoogleAuthHelper.isSignedIn(this))
+        updateUI()
     }
 
     private fun onSignedIn(email: String) {
         binding.progressBar.visibility = View.GONE
-        binding.tvStatus.text = "Signed in: $email"
-        updateUI(true)
+        updateUI()
         Toast.makeText(this, "Welcome, $email", Toast.LENGTH_SHORT).show()
     }
 
-    private fun updateUI(signedIn: Boolean) {
-        binding.btnSignIn.visibility = if (signedIn) View.GONE else View.VISIBLE
-        binding.btnSignOut.visibility = if (signedIn) View.VISIBLE else View.GONE
+    private fun updateUI() {
+        val provider = CloudConfigManager.getSelectedProvider(this)
+        val configured = CloudConfigManager.isConfigured(this, provider)
+        val googleSignedIn = GoogleAuthHelper.isSignedIn(this)
+
+        when (provider) {
+            CloudProvider.GOOGLE_DRIVE -> binding.rgCloud.check(R.id.rbGoogle)
+            CloudProvider.AMAZON_S3 -> binding.rgCloud.check(R.id.rbS3)
+            CloudProvider.AZURE_BLOB -> binding.rgCloud.check(R.id.rbAzure)
+        }
+
+        binding.btnSignIn.visibility = if (provider == CloudProvider.GOOGLE_DRIVE && !googleSignedIn)
+            View.VISIBLE else View.GONE
+        binding.btnSignOut.visibility = if (provider == CloudProvider.GOOGLE_DRIVE && googleSignedIn)
+            View.VISIBLE else View.GONE
+        binding.btnCloudSetup.visibility = if (provider != CloudProvider.GOOGLE_DRIVE)
+            View.VISIBLE else View.GONE
+
         binding.btnBenchmark.isEnabled = true
-        binding.btnUpload.isEnabled = signedIn
+        binding.btnUpload.isEnabled = configured
         binding.progressBar.visibility = View.GONE
 
-        if (signedIn) {
-            val account = GoogleAuthHelper.getLastSignedInAccount(this)
-            binding.tvStatus.text = "Signed in: ${account?.email ?: "Unknown"}"
-            binding.tvUploadHint.text = "Ready to upload photos to Google Drive"
+        val label = CloudConfigManager.getProviderLabel(provider)
+        if (configured) {
+            when (provider) {
+                CloudProvider.GOOGLE_DRIVE -> {
+                    val email = GoogleAuthHelper.getLastSignedInAccount(this)?.email ?: "Unknown"
+                    binding.tvStatus.text = "Google: $email"
+                }
+                CloudProvider.AMAZON_S3 -> {
+                    val s3 = CloudConfigManager.loadS3Config(this)
+                    binding.tvStatus.text = "S3: ${s3?.bucket} (${s3?.region}) - NO RATE LIMIT"
+                }
+                CloudProvider.AZURE_BLOB -> {
+                    val az = CloudConfigManager.loadAzureConfig(this)
+                    binding.tvStatus.text = "Azure: ${az?.accountName}/${az?.container} - NO RATE LIMIT"
+                }
+            }
+            binding.tvUploadHint.text = "Ready to upload photos to $label"
         } else {
-            binding.tvStatus.text = "Sign in with Google to upload photos"
-            binding.tvUploadHint.text = "Sign in first to enable photo upload"
+            binding.tvStatus.text = when (provider) {
+                CloudProvider.GOOGLE_DRIVE -> "Sign in with Google"
+                else -> "Configure $label credentials"
+            }
+            binding.tvUploadHint.text = when (provider) {
+                CloudProvider.GOOGLE_DRIVE -> "Sign in to enable upload"
+                else -> "Tap Cloud Setup to enter credentials"
+            }
         }
     }
 }
