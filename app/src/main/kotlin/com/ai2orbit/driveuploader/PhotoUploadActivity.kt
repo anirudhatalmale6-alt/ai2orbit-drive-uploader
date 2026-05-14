@@ -43,7 +43,7 @@ class PhotoUploadActivity : AppCompatActivity() {
             binding.tvProfileStatus.text = "No benchmark profile. Run benchmark first for optimal speed."
             binding.tvProfileStatus.visibility = View.VISIBLE
         } else {
-            binding.tvProfileStatus.text = "Profile: ${profile!!.parallelStreams} streams, ${profile!!.optimalChunkKb}KB chunks"
+            binding.tvProfileStatus.text = "Profile: ${profile!!.virtualStreams} virtual streams, ${profile!!.optimalChunkKb}KB chunks"
             binding.tvProfileStatus.visibility = View.VISIBLE
         }
 
@@ -141,7 +141,7 @@ class PhotoUploadActivity : AppCompatActivity() {
             cpuScoreNs = 10000.0, memoryMbps = 500.0, gpuScore = 1.0,
             screenScore = 60.0, totalRamMb = 2048, availableRamMb = 1024,
             cpuCores = 4, powerFactor = 1.0, optimalChunkKb = 2048,
-            parallelStreams = 2, estimatedKbps = 1000.0
+            parallelStreams = 2, virtualStreams = 7, estimatedKbps = 1000.0
         )
 
         val uploader = DriveUploader(driveService, contentResolver, effectiveProfile)
@@ -179,7 +179,7 @@ class PhotoUploadActivity : AppCompatActivity() {
                 appendLine("Total: ${String.format("%.2f", totalMb)} MB")
                 appendLine("Time: ${String.format("%.1f", totalTime / 1000.0)} sec")
                 appendLine("Speed: ${String.format("%.2f", batchResult.avgSpeedKbps)} kbps")
-                appendLine("Streams: ${effectiveProfile.parallelStreams}")
+                appendLine("Virtual Streams: ${effectiveProfile.virtualStreams}")
                 appendLine("Chunk: ${effectiveProfile.optimalChunkKb} KB")
                 if (batchResult.failCount > 0) {
                     appendLine("Failed: ${batchResult.failCount}")

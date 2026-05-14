@@ -65,9 +65,9 @@ class DriveUploader(
         uris: List<Uri>,
         onProgress: (current: Int, total: Int, result: UploadResult?) -> Unit
     ): UploadBatchResult = withContext(Dispatchers.IO) {
-        val semaphore = Semaphore(profile.parallelStreams)
+        val streamCount = profile.virtualStreams.coerceIn(7, 256)
+        val semaphore = Semaphore(streamCount)
         val results = Channel<UploadResult>(Channel.UNLIMITED)
-        val completed = mutableListOf<UploadResult>()
 
         val jobs = uris.mapIndexed { index, uri ->
             async {

@@ -20,6 +20,7 @@ data class DeviceProfile(
     val powerFactor: Double,
     val optimalChunkKb: Int,
     val parallelStreams: Int,
+    val virtualStreams: Int,
     val estimatedKbps: Double
 )
 
@@ -67,11 +68,20 @@ object PerformanceProfiler {
             else -> 1024
         }
 
-        val streams = when {
+        val physicalStreams = when {
             cores >= 8 && availRamMb > 2048 -> 6
             cores >= 6 && availRamMb > 1024 -> 4
             cores >= 4 -> 3
             else -> 2
+        }
+
+        val virtualStreams = when {
+            availRamMb > 4096 && memScore > 2000 -> 256
+            availRamMb > 3072 && memScore > 1000 -> 128
+            availRamMb > 2048 && memScore > 500 -> 64
+            availRamMb > 1024 -> 32
+            availRamMb > 512 -> 16
+            else -> 7
         }
 
         DeviceProfile(
@@ -84,7 +94,8 @@ object PerformanceProfiler {
             cpuCores = cores,
             powerFactor = powerFactor,
             optimalChunkKb = optimalChunk,
-            parallelStreams = streams,
+            parallelStreams = physicalStreams,
+            virtualStreams = virtualStreams,
             estimatedKbps = boostedKbps
         )
     }
@@ -153,7 +164,8 @@ object PerformanceProfiler {
             appendLine("─".repeat(40))
             appendLine("Power Factor:    ${String.format("%.4e", profile.powerFactor)}")
             appendLine("Optimal Chunk:   ${profile.optimalChunkKb} KB")
-            appendLine("Parallel Streams: ${profile.parallelStreams}")
+            appendLine("Physical Streams: ${profile.parallelStreams}")
+            appendLine("Virtual Streams: ${profile.virtualStreams}")
             appendLine("Est. Throughput: ${String.format("%.2e", profile.estimatedKbps)} kbps")
             appendLine("─".repeat(40))
         }

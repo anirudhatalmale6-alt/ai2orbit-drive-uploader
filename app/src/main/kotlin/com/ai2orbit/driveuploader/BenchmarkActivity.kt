@@ -72,6 +72,7 @@ object ProfileCache {
             .putFloat("power", p.powerFactor.toFloat())
             .putInt("chunk", p.optimalChunkKb)
             .putInt("streams", p.parallelStreams)
+            .putInt("vstreams", p.virtualStreams)
             .putFloat("kbps", p.estimatedKbps.toFloat())
             .putBoolean("valid", true)
             .apply()
@@ -91,6 +92,7 @@ object ProfileCache {
             powerFactor = sp.getFloat("power", 1f).toDouble(),
             optimalChunkKb = sp.getInt("chunk", 2048),
             parallelStreams = sp.getInt("streams", 2),
+            virtualStreams = sp.getInt("vstreams", 7),
             estimatedKbps = sp.getFloat("kbps", 0f).toDouble()
         )
     }
